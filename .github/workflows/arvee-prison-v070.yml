@@ -1,4 +1,4 @@
-name: ARVEE Prison v0.7.0 Paper 26.3
+name: ARVEE Prison v0.7.1 Paper 26.3
 on:
   push:
     branches: [arvee-prison-v070-20261025]
@@ -15,27 +15,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Extract complete v0.7 source snapshot
+      - name: Extract v0.7 source snapshot
         run: |
           base64 -d prison-v070-full-source.tar.xz.b64 | xz -d > prison-v070-full-source.tar
           rm -rf src build.gradle.kts settings.gradle.kts
           tar -xf prison-v070-full-source.tar
-          grep -q 'version = "0.7.0"' build.gradle.kts
-      - name: Apply production accrual fix
+      - name: Apply auto-equip, version and robot production fixes
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('src/main/java/world/arvee/prison/PrisonIndustry.java')
-          source=p.read_text()
-          before="        f.lastWork=now;\n        if(elapsed<1000)return;\n        long seconds=elapsed/1000;"
-          after="        // Accumulate small elapsed intervals; frequent PlaceholderAPI/menu reads must not stall production.\n        if(elapsed<15_000L)return;\n        f.lastWork=now;\n        long seconds=elapsed/1000;"
-          assert before in source, 'Source changed; refusing to apply an unsafe patch'
-          p.write_text(source.replace(before,after))
-          PY
-      - name: Compile with real Paper 26.3 API
+          base64 -d prison-v071-auto-equip.patch.xz.b64 | xz -d > prison-v071-auto-equip.patch
+          patch -p1 --batch < prison-v071-auto-equip.patch
+          grep -q 'version = "0.7.1"' build.gradle.kts
+          grep -q 'auto-equip-on-join: true' src/main/resources/config.yml
+      - name: Compile with the official Paper 26.3 API
         run: gradle clean build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: ArveePrison-v0.7.0-Paper26.3-verified
-          path: build/libs/ArveePrison-0.7.0-Paper26.3.jar
+          name: ArveePrison-v0.7.1-Paper26.3
+          path: build/libs/ArveePrison-0.7.1-Paper26.3.jar
           if-no-files-found: error
