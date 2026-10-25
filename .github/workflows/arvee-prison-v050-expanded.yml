@@ -1,0 +1,28 @@
+name: Build ARVEE Prison v0.5.0 Patch Paper 26.3
+on:
+  push:
+    branches: [arvee-prison-v050-20261025]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Extract v0.5 source
+        run: |
+          mkdir -p project
+          tar -xJf prison-v05-source.tar.xz -C project
+      - name: Compile with real Paper API
+        run: gradle -p project clean build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-v0.5.0-Paper26.3-Expanded
+          path: project/build/libs/*.jar
+          if-no-files-found: error
