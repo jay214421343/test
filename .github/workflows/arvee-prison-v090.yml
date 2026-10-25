@@ -42,7 +42,7 @@ jobs:
         run: |
           base64 -d prison-v081.patch.xz.b64 | xz -d > /tmp/repair.patch
           patch -p1 --batch < /tmp/repair.patch
-          grep -q 'version = "0.9.0"' build.gradle.kts
+          grep -q 'version = "0.8.1"' build.gradle.kts
           grep -q 'repairLegacyInnerFrame' src/main/java/world/arvee/prison/Worlds.java
           grep -q 'openMore' src/main/java/world/arvee/prison/PrisonMenus.java
       - name: Apply 17-enchant engine and physical boost voucher upgrade
