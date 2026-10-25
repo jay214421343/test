@@ -49,7 +49,7 @@ jobs:
         run: |
           base64 -d prison-v090.patch.xz.b64 | xz -d > /tmp/v090.patch
           # The base CI source archive does not contain optional README notes.
-          awk '/^diff -ruN .*a\\/build.gradle.kts b\\/build.gradle.kts/{p=1}p' /tmp/v090.patch > /tmp/v090-code.patch
+          awk 'index($0,"a/build.gradle.kts b/build.gradle.kts"){p=1}p{print}' /tmp/v090.patch > /tmp/v090-code.patch
           patch -p1 --batch < /tmp/v090-code.patch
           grep -q 'version = "0.9.0"' build.gradle.kts
           grep -q 'class PrisonEnchantEngine' src/main/java/world/arvee/prison/PrisonEnchantEngine.java
