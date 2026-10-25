@@ -20,16 +20,17 @@ jobs:
           base64 -d prison-v070-full-source.tar.xz.b64 | xz -d > prison-v070-full-source.tar
           rm -rf src build.gradle.kts settings.gradle.kts
           tar -xf prison-v070-full-source.tar
-      - name: Apply auto-equip, version and robot production fixes
+      - name: Apply auto-equip and production fixes
         run: |
           base64 -d prison-v071-auto-equip.patch.xz.b64 | xz -d > prison-v071-auto-equip.patch
           patch -p1 --batch < prison-v071-auto-equip.patch
+          sed -i 's/getBoolean("pickaxe.auto-equip-on-world-change", false)/getBoolean("pickaxe.auto-equip-on-world-change", true)/' src/main/java/world/arvee/prison/ArveePrison.java
           grep -q 'version = "0.7.1"' build.gradle.kts
           grep -q 'auto-equip-on-join: true' src/main/resources/config.yml
       - name: Compile with the official Paper 26.3 API
         run: gradle clean build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: ArveePrison-v0.7.1-Paper26.3
+          name: ArveePrison-v0.7.1-Paper26.3-final
           path: build/libs/ArveePrison-0.7.1-Paper26.3.jar
           if-no-files-found: error
