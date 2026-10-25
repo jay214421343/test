@@ -21,10 +21,21 @@ jobs:
           rm -rf src build.gradle.kts settings.gradle.kts
           tar -xf prison-v070-full-source.tar
           grep -q 'version = "0.7.0"' build.gradle.kts
+      - name: Apply production accrual fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/main/java/world/arvee/prison/PrisonIndustry.java')
+          source=p.read_text()
+          before="        f.lastWork=now;\n        if(elapsed<1000)return;\n        long seconds=elapsed/1000;"
+          after="        // Accumulate small elapsed intervals; frequent PlaceholderAPI/menu reads must not stall production.\n        if(elapsed<15_000L)return;\n        f.lastWork=now;\n        long seconds=elapsed/1000;"
+          assert before in source, 'Source changed; refusing to apply an unsafe patch'
+          p.write_text(source.replace(before,after))
+          PY
       - name: Compile with real Paper 26.3 API
         run: gradle clean build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: ArveePrison-v0.7.0-Paper26.3
+          name: ArveePrison-v0.7.0-Paper26.3-verified
           path: build/libs/ArveePrison-0.7.0-Paper26.3.jar
           if-no-files-found: error
