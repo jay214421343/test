@@ -48,7 +48,9 @@ jobs:
       - name: Apply 17-enchant engine and physical boost voucher upgrade
         run: |
           base64 -d prison-v090.patch.xz.b64 | xz -d > /tmp/v090.patch
-          patch -p1 --batch < /tmp/v090.patch
+          # The base CI source archive does not contain optional README notes.
+          awk '/^diff -ruN .*a\\/build.gradle.kts b\\/build.gradle.kts/{p=1}p' /tmp/v090.patch > /tmp/v090-code.patch
+          patch -p1 --batch < /tmp/v090-code.patch
           grep -q 'version = "0.9.0"' build.gradle.kts
           grep -q 'class PrisonEnchantEngine' src/main/java/world/arvee/prison/PrisonEnchantEngine.java
           grep -q 'class PrisonBoostItems' src/main/java/world/arvee/prison/PrisonBoostItems.java
