@@ -15,14 +15,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Extract v0.5 baseline
-        run: tar -xjf prison-v050-source.tar.bz2
-      - name: Apply complete v0.7 source patch
+      - name: Extract complete v0.7 source snapshot
         run: |
-          base64 -d prison-v070.patch.xz.b64 | xz -d > prison-v070.patch
-          patch -p1 --batch < prison-v070.patch
-          sed -i 's/version = "0.5.0"/version = "0.7.0"/' build.gradle.kts
-          test -f src/main/java/world/arvee/prison/PrisonIndustry.java
+          base64 -d prison-v070-full-source.tar.xz.b64 | xz -d > prison-v070-full-source.tar
+          rm -rf src build.gradle.kts settings.gradle.kts
+          tar -xf prison-v070-full-source.tar
+          grep -q 'version = "0.7.0"' build.gradle.kts
       - name: Compile with real Paper 26.3 API
         run: gradle clean build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
