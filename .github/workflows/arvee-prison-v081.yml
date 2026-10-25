@@ -1,0 +1,54 @@
+name: ARVEE Prison v0.8.1 Paper 26.3
+on:
+  push:
+    branches: [arvee-prison-v081-20261025]
+  workflow_dispatch:
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Extract v0.7.0 source and apply automatic pickaxe upgrade
+        run: |
+          base64 -d prison-v070-full-source.tar.xz.b64 | xz -d > /tmp/prison.tar
+          rm -rf src build.gradle.kts settings.gradle.kts
+          tar -xf /tmp/prison.tar
+          base64 -d prison-v071-auto-equip.patch.xz.b64 | xz -d > /tmp/autoequip.patch
+          patch -p1 --batch < /tmp/autoequip.patch
+          sed -i 's/getBoolean("pickaxe.auto-equip-on-world-change", false)/getBoolean("pickaxe.auto-equip-on-world-change", true)/' src/main/java/world/arvee/prison/ArveePrison.java
+      - name: Apply v0.8.0 backpack, rank keys, crate spinner, and hotbar GUI
+        run: |
+          cat prison-v080.patch.part{0,1,2,3} | base64 -d | xz -d > /tmp/v08.patch
+          patch -p1 --batch < /tmp/v08.patch
+      - name: Integrate advanced enchants into pickaxe upgrade GUI
+        run: |
+          cat prison-v080-extra.part{0,1} | base64 -d | xz -d > /tmp/extras.patch
+          patch -p1 --batch < /tmp/extras.patch
+      - name: Expand generated rank mines safely with saved per-mine radius
+        run: |
+          cat prison-v080-world.part{0,1,2} | base64 -d | xz -d > /tmp/large-mines.patch
+          patch -p1 --batch < /tmp/large-mines.patch
+          grep -q 'width-multiplier: 4' src/main/resources/config.yml
+          grep -q 'arena-radius' src/main/java/world/arvee/prison/Worlds.java
+          grep -q 'version = "0.8.0"' build.gradle.kts
+      - name: Repair expanded mine geometry and simplify the Star menu
+        run: |
+          base64 -d prison-v081.patch.xz.b64 | xz -d > /tmp/repair.patch
+          patch -p1 --batch < /tmp/repair.patch
+          grep -q 'version = "0.8.1"' build.gradle.kts
+          grep -q 'repairLegacyInnerFrame' src/main/java/world/arvee/prison/Worlds.java
+          grep -q 'openMore' src/main/java/world/arvee/prison/PrisonMenus.java
+      - name: Compile with real Paper 26.3 API and PlaceholderAPI
+        run: gradle clean build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-v0.8.1-Paper26.3
+          path: build/libs/ArveePrison-0.8.1-Paper26.3.jar
+          if-no-files-found: error
