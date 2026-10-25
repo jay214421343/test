@@ -1,0 +1,32 @@
+name: ARVEE Prison v0.7.0 Paper 26.3
+on:
+  push:
+    branches: [arvee-prison-v070-20261025]
+  workflow_dispatch:
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Extract v0.5 baseline
+        run: tar -xjf prison-v050-source.tar.bz2
+      - name: Apply complete v0.7 source patch
+        run: |
+          base64 -d prison-v070.patch.xz.b64 | xz -d > prison-v070.patch
+          patch -p1 --batch < prison-v070.patch
+          sed -i 's/version = "0.5.0"/version = "0.7.0"/' build.gradle.kts
+          test -f src/main/java/world/arvee/prison/PrisonIndustry.java
+      - name: Compile with real Paper 26.3 API
+        run: gradle clean build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-v0.7.0-Paper26.3
+          path: build/libs/ArveePrison-0.7.0-Paper26.3.jar
+          if-no-files-found: error
