@@ -23,6 +23,7 @@ jobs:
           tar -xJf prison-v05-source.tar.xz
           base64 -d prison-v061.patch.gz.b64 | gzip -d > /tmp/upgrade.patch
           patch --batch -p1 < /tmp/upgrade.patch
+          sed -i "/import org.bukkit.event.player.\\*;/a import org.bukkit.event.world.StructureGrowEvent;" src/main/java/world/arvee/prison/PrisonPlots.java
       - name: Compile real Paper API and PlaceholderAPI
         run: gradle clean build --no-daemon --stacktrace
       - name: Validate JAR packaging
