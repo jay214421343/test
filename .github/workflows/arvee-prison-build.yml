@@ -1,7 +1,7 @@
-name: Build Arvee Prison Paper 26.3
+name: Build Arvee Prison 0.3 Paper 26.3
 on:
   push:
-    branches: [arvee-prison-build-20261025]
+    branches: [arvee-prison-v030-20261025]
   workflow_dispatch:
 jobs:
   build:
@@ -15,12 +15,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Extract source
-        run: tar -xjf prison-source.tar.bz2
-      - name: Compile with the real Paper API
+      - name: Extract ARVEE Prison source
+        run: tar -xJf prison-v03-source.tar.xz
+      - name: Compile against real Paper API and PlaceholderAPI
         run: gradle clean build --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: ArveePrison-Paper26.3
+          name: ArveePrison-0.3.0-Paper26.3
           path: build/libs/*.jar
           if-no-files-found: error
