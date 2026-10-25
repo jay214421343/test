@@ -1,0 +1,37 @@
+name: ARVEE Prison v0.6.1 real Paper 26.3 build
+on:
+  push:
+    branches: [arvee-prison-v061-20261025]
+    paths:
+      - prison-v061.patch.gz.b64
+      - .github/workflows/arvee-prison-v061.yml
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Reconstruct complete v0.6.1 source from v0.5.0
+        run: |
+          tar -xJf prison-v05-source.tar.xz
+          base64 -d prison-v061.patch.gz.b64 | gzip -d > /tmp/upgrade.patch
+          patch --batch -p1 < /tmp/upgrade.patch
+      - name: Compile real Paper API and PlaceholderAPI
+        run: gradle clean build --no-daemon --stacktrace
+      - name: Validate JAR packaging
+        run: |
+          test -s build/libs/ArveePrison-0.6.1-Paper26.3.jar
+          jar tf build/libs/ArveePrison-0.6.1-Paper26.3.jar | grep -q "world/arvee/prison/PrisonPlots.class"
+          jar tf build/libs/ArveePrison-0.6.1-Paper26.3.jar | grep -q "plugin.yml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-0.6.1-Paper26.3
+          path: build/libs/ArveePrison-0.6.1-Paper26.3.jar
+          if-no-files-found: error
