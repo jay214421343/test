@@ -124,4 +124,5 @@ rewrite(root/'ArveePrison.java',
 rewrite(root/'ArveePrison.java','ARVEE Prison v1.2.1 Mining & Storage enabled.','ARVEE Prison v1.2.4 QoL & Token Balance enabled.')
 rewrite('build.gradle.kts','version = "1.2.3"','version = "1.2.4"')
 rewrite('src/main/resources/plugin.yml','version: 1.2.3','version: 1.2.4')
+rewrite('tests/prestige_ascension_regression.py',"assert 'version: 1.2.3' in yml","assert 'version: 1.2.4' in yml")
 print('Patched v1.2.4: shared economics, consistent upgrade flow, manual save completeness')
