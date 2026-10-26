@@ -36,6 +36,7 @@ jobs:
           patch --batch -p4 < arvee-106-changes.patch
           patch --batch -p4 < arvee-106-plugin.patch
           patch --batch -p4 < arvee-106-config.patch
+          sed -i '/public PrisonExpansion expansion(){return expansion;}/d' src/main/java/world/arvee/prison/ArveePrison.java
           sed -i 's/1.0.5.3/1.0.6/g' build.gradle.kts
           grep -Fx 'version: 1.0.6' src/main/resources/plugin.yml
           test -f src/main/java/world/arvee/prison/PrisonTrading.java
