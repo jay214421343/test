@@ -1,0 +1,99 @@
+name: ARVEEPrison v1.2.1 - Mining Progression and Mine Explosives
+on:
+  push:
+    branches: [arvee-prison-v121-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Gradle 9.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Restore verified v1.2.0 codebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v120-full-source.tar.xz.b64 > source.tar.xz
+          echo 'c6cf0a3cc1a901fa09bb61f4f09ebf35e87a6df26d71f27e7cc4dbbe730ad22f  source.tar.xz' | sha256sum -c -
+          tar -xJf source.tar.xz --overwrite
+          grep -Fx 'version: 1.2.0' src/main/resources/plugin.yml
+      - name: Apply v1.2.1 data-compatible changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-v121.patch.xz.b64 > v121.patch.xz
+          echo '7fc3b1900c4db6199b65d896ad5e681b2900326f1aab423796978ef150b36c91  v121.patch.xz' | sha256sum -c -
+          xz -dc v121.patch.xz | patch --batch --fuzz=0 -p1
+          grep -Fx 'version: 1.2.1' src/main/resources/plugin.yml
+          grep -F 'version = "1.2.1"' build.gradle.kts
+      - name: Regression and migration source checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('src/main/java/world/arvee/prison')
+          read=lambda n:(root/n).read_text(encoding='utf-8')
+          main=read('ArveePrison.java')
+          mines=read('PrisonPrestigeMines.java')
+          storage=read('PrisonStorage.java')
+          profile=read('ProfileStore.java')
+          ench=read('PrisonEnchantEngine.java')
+          crate=read('PrisonTreasures.java')
+          bomb=read('PrisonMineExplosives.java')
+          treat=read('PrisonTreats.java')
+          boost=read('PrisonBoostItems.java')
+          config=Path('src/main/resources/config.yml').read_text()
+          plugin=Path('src/main/resources/plugin.yml').read_text()
+          assert 'private static final int RESET_MINUTES=20;' in mines
+          assert 'minedCount>=totalBlocks' not in mines
+          assert 'max-fortune-upgrade: 2500' in config
+          assert 'max-slots: 648' in config
+          assert 'Math.min(594,extraItems.size())' in profile
+          assert 'Math.min(648,' in profile
+          assert 'Math.min(12,' in storage
+          assert 'TOKEN_FORTUNE' in ench and 'tokenFortuneMultiplier' in ench
+          assert 'TOKEN_LUCK' in ench
+          assert '"divine","eternal"' in treat
+          assert 'private static final int MAX_MINUTES=1000000;' in boost
+          assert 'public void merge' in boost and 'public void split' in boost
+          assert 'plugin.notifications().miningMessage' in crate
+          assert 'mineexplosives:' in plugin and 'mineExplosives = new PrisonMineExplosives(this);' in main
+          assert 'crateChance(type,false)' in crate and 'crateChance(type,true)' in crate
+          assert 'getPersistentDataContainer().set(kindKey' in bomb
+          assert 'bonusBreak(player,block)' in bomb and 'plugin.worlds().isMineBlock(block)' in bomb
+          assert 'runTaskTimer(plugin,1L,1L)' in bomb
+          assert 'if (mineExplosives != null) mineExplosives.save();' in main
+          print('v1.2.1 regression invariants passed')
+          PY
+      - name: Compile against genuine Paper API / Java 25
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Verify JAR metadata and classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.2.1-Paper26.3.jar
+          test -s "$JAR"
+          jar tf "$JAR" | grep -Fx 'plugin.yml'
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.2.1'
+          for cls in ArveePrison PrisonEnchantEngine PrisonMineExplosives PrisonStorage PrisonTreasures PrisonBoostItems PrisonExpeditions PrisonTutorial; do
+            jar tf "$JAR" | grep -Fx "world/arvee/prison/$cls.class"
+          done
+          unzip -t "$JAR" | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ARVEEPrison-1.2.1-Paper26.3
+          path: build/libs/ArveePrison-1.2.1-Paper26.3.jar
+          if-no-files-found: error
+          retention-days: 30
