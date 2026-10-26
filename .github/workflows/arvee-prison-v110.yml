@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           base64 -d arvee-v110-delta.tar.xz.b64 > v110.tar.xz
-          echo 'e2210fc531c4a66bb295886ca3ad6a2a09eedfb738bfa6345da19382310ecc4f  v110.tar.xz' | sha256sum -c -
+          echo 'cbb27299ed247e863ca8434e29088fd80f11b3e53278724142549fc83f69253a  v110.tar.xz' | sha256sum -c -
           tar -xJf v110.tar.xz
           grep -Fx 'version: 1.1.0' src/main/resources/plugin.yml
           grep -F 'version = "1.1.0"' build.gradle.kts
