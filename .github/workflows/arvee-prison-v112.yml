@@ -69,7 +69,7 @@ jobs:
           grep -Fx 'version: 1.1.2' src/main/resources/plugin.yml
           grep -F 'version = "1.1.2"' build.gradle.kts
           grep -F 'pickaxe-boss-damage-multiplier: 2.5' src/main/resources/config.yml
-          grep -F 'event.setKeepInventory(true)' src/main/java/world/arvee/prison/ArveePrison.java
+          grep -F 'e.setKeepInventory(true)' src/main/java/world/arvee/prison/ArveePrison.java
       - name: Compile against genuine Paper 26.3 API with Java 25
         run: gradle clean jar --no-daemon --stacktrace
       - name: Verify JAR and plugin metadata
