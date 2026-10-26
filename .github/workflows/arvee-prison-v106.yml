@@ -1,0 +1,61 @@
+name: Build ARVEEPrison v1.0.6
+on:
+  push:
+    branches: [arvee-prison-v106-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Reconstruct verified v1.0.5.3 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v1052-fullsource.zip.b64 > arvee1052.zip
+          echo '578c2be8fd44e8f1c959d6eed98e4a478bc6e02bb545b48158686f93a68037b9  arvee1052.zip' | sha256sum -c -
+          unzip -q -o arvee1052.zip
+          python3 patch-reset-1053.py
+      - name: Apply ARVEEPrison v1.0.6 consolidated feature update
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat patch106.part0{0..7} | base64 -d > patch106.tar.xz
+          echo '2bf21db2ad17c3581a077622ef6da76e63f49f748d60d1c00807f096cb47f991  patch106.tar.xz' | sha256sum -c -
+          tar -xJf patch106.tar.xz
+          patch --batch -p3 < arvee-106-changes.patch
+          patch --batch -p3 < arvee-106-plugin.patch
+          patch --batch -p3 < arvee-106-config.patch
+          sed -i 's/1.0.5.3/1.0.6/g' build.gradle.kts
+          grep -Fx 'version: 1.0.6' src/main/resources/plugin.yml
+          test -f src/main/java/world/arvee/prison/PrisonTrading.java
+          test -f src/main/java/world/arvee/prison/PrisonLifestyle.java
+          test -f src/main/java/world/arvee/prison/PrisonBoosterMenu.java
+          test -f src/main/java/world/arvee/prison/PrisonProgression.java
+      - name: Build Java 25 plugin against Paper 26.3 API
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Validate compiled JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.0.6-Paper26.3.jar
+          test -s "$JAR"
+          jar tf "$JAR" | grep -Fx 'world/arvee/prison/ArveePrison.class'
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.0.6'
+          unzip -t "$JAR" | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ARVEEPrison-1.0.6-Paper26.3
+          path: build/libs/ArveePrison-1.0.6-Paper26.3.jar
+          retention-days: 30
+          if-no-files-found: error
