@@ -1,0 +1,85 @@
+name: ARVEEPrison v1.2.0 — Java 25 / Paper 26.3
+on:
+  push:
+    branches: [arvee-prison-v120-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Reconstruct and checksum complete v1.2.0 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v120-full-source.tar.xz.b64 > complete-source.tar.xz
+          echo 'c6cf0a3cc1a901fa09bb61f4f09ebf35e87a6df26d71f27e7cc4dbbe730ad22f  complete-source.tar.xz' | sha256sum -c -
+          tar -xJf complete-source.tar.xz --overwrite
+          grep -Fx 'version: 1.2.0' src/main/resources/plugin.yml
+          grep -F 'version = "1.2.0"' build.gradle.kts
+          for f in PrisonExpeditions PrisonAscension PrisonPrestigeCodex PrisonFoundry PrisonEndgameMarket PrisonTutorial; do
+            test -s "src/main/java/world/arvee/prison/${f}.java"
+          done
+          grep -F 'reset' src/main/java/world/arvee/prison/PrisonPrestigeMines.java | head -5
+      - name: Regression source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('src/main/java/world/arvee/prison')
+          plugin=Path('src/main/resources/plugin.yml').read_text()
+          config=Path('src/main/resources/config.yml').read_text()
+          main=(root/'ArveePrison.java').read_text()
+          tutorial=(root/'PrisonTutorial.java').read_text()
+          expeditions=(root/'PrisonExpeditions.java').read_text()
+          assert 'prisontutorial:' in plugin
+          assert all(k in plugin for k in ('foundry:','prestigecodex:','endgamemarket:','expedition:'))
+          assert 'tutorial = new PrisonTutorial(this);' in main
+          assert 'private PrisonTutorial tutorial;' in main
+          assert 'tutorial.save()' in main
+          assert 'e.setKeepInventory(true)' in main
+          assert 'onRespawnLocation' in main
+          assert 'tutorial:\n  enabled: true' in config
+          assert 'firstJoin(PlayerJoinEvent' in tutorial and 'player.hasPlayedBefore()' in tutorial
+          assert 'PlayerCommandPreprocessEvent' in tutorial and 'BlockBreakEvent' in tutorial
+          assert 'if(!p.isOnline())return' in tutorial
+          assert 'run.ready.containsAll(run.party)' in expeditions
+          assert 'boss' in expeditions.lower()
+          # Strictly forbid the 80-percent early-reset condition removed in 1.0.5.3
+          assert 'minedCount>=totalBlocks' not in (root/'PrisonPrestigeMines.java').read_text()
+          print('Regression invariants passed.')
+          PY
+      - name: Compile with real Paper API (no generated API stubs)
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Verify compiled JAR and features
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.2.0-Paper26.3.jar
+          test -s "$JAR"
+          jar tf "$JAR" | grep -Fx 'plugin.yml'
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.2.0'
+          for f in ArveePrison PrisonExpeditions PrisonAscension PrisonPrestigeCodex PrisonFoundry PrisonEndgameMarket PrisonTutorial; do
+            jar tf "$JAR" | grep -Fx "world/arvee/prison/${f}.class"
+          done
+          unzip -t "$JAR" | tail -1
+      - name: Upload verified JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARVEEPrison-1.2.0-Paper26.3
+          path: build/libs/ArveePrison-1.2.0-Paper26.3.jar
+          retention-days: 30
+          if-no-files-found: error
