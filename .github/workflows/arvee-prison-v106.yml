@@ -33,9 +33,9 @@ jobs:
           cat patch106.part0{0..7} | base64 -d > patch106.tar.xz
           echo '2bf21db2ad17c3581a077622ef6da76e63f49f748d60d1c00807f096cb47f991  patch106.tar.xz' | sha256sum -c -
           tar -xJf patch106.tar.xz
-          patch --batch -p3 < arvee-106-changes.patch
-          patch --batch -p3 < arvee-106-plugin.patch
-          patch --batch -p3 < arvee-106-config.patch
+          patch --batch -p4 < arvee-106-changes.patch
+          patch --batch -p4 < arvee-106-plugin.patch
+          patch --batch -p4 < arvee-106-config.patch
           sed -i 's/1.0.5.3/1.0.6/g' build.gradle.kts
           grep -Fx 'version: 1.0.6' src/main/resources/plugin.yml
           test -f src/main/java/world/arvee/prison/PrisonTrading.java
