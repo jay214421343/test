@@ -33,8 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           base64 -d arvee-v121.patch.xz.b64 > v121.patch.xz
-          echo '7fc3b1900c4db6199b65d896ad5e681b2900326f1aab423796978ef150b36c91  v121.patch.xz' | sha256sum -c -
-          xz -dc v121.patch.xz | patch --batch --fuzz=0 -p1
+          echo '26e36a3cce4909c85f14032d04d36120705af4d4e325f3e539f3ed89e02da493  v121.patch.xz' | sha256sum -c -
+          tar -xJf v121.patch.xz --overwrite
           grep -Fx 'version: 1.2.1' src/main/resources/plugin.yml
           grep -F 'version = "1.2.1"' build.gradle.kts
       - name: Regression and migration source checks
