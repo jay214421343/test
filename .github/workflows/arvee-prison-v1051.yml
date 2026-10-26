@@ -1,0 +1,68 @@
+name: Build ARVEEPrison v1.0.5.1 (Java 25 / Paper 26.3)
+on:
+  push:
+    branches:
+      - arvee-prison-v1051-20261026
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-hotfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Install Gradle 9.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Extract verified v1.0.5 source and apply v1.0.5.1 hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode arveeprison-v105-fullsource.zip.b64 > prison-source-v105.zip
+          echo "558e40b0efef989b3b493fa58b6551880393bfc7f83fc397e23b9d1c8abf71dc  prison-source-v105.zip" | sha256sum --check -
+          unzip -q -o prison-source-v105.zip
+          python -m pip install --quiet 'brotli==1.1.0'
+          python - <<'PY'
+          import base64, brotli, hashlib
+          from pathlib import Path
+          data=base64.b64decode(Path("arveeprison-v1051-changes.patch.br.b64").read_text())
+          patch=brotli.decompress(data)
+          digest=hashlib.sha256(patch).hexdigest()
+          assert digest=="006234fad10b63a42f7e55be960ac738ec2b519bcd72c95d4bdcc0afe60b2722", digest
+          Path("hotfix.patch").write_bytes(patch)
+          print("Validated hotfix patch:", digest)
+          PY
+          patch --batch --fuzz=0 -p1 < hotfix.patch
+          grep -Fx 'version: 1.0.5.1' src/main/resources/plugin.yml
+          grep -q 'public boolean refresh(Player p)' src/main/java/world/arvee/prison/PrisonEnchantEngine.java
+          grep -q 'ensurePrestigeMine' src/main/java/world/arvee/prison/PrisonHolograms.java
+      - name: Compile v1.0.5.1 against Paper 26.3
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Verify compiled JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.0.5.1-Paper26.3.jar
+          test -s "$JAR"
+          jar tf "$JAR" | grep -Fx 'world/arvee/prison/ArveePrison.class'
+          jar tf "$JAR" | grep -Fx 'world/arvee/prison/PrisonPrestigeMines.class'
+          jar tf "$JAR" | grep -Fx 'plugin.yml'
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.0.5.1'
+          unzip -t "$JAR" | tail -1
+      - name: Upload v1.0.5.1 JAR and TAB footer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-1.0.5.1-Paper26.3
+          path: |
+            build/libs/ArveePrison-1.0.5.1-Paper26.3.jar
+            TAB-PRISON-FOOTER-v1.0.5.1.yml
+            RELEASE-NOTES-v1.0.5.1.md
+          retention-days: 30
+          if-no-files-found: error
