@@ -1,0 +1,52 @@
+name: Build ARVEEPrison v1.0.5 (Java 25 / Paper 26.3)
+on:
+  push:
+    branches:
+      - arvee-prison-v105-20261026
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-prison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Install Gradle 9.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Decode and validate complete ARVEEPrison v1.0.5 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode arveeprison-v105-fullsource.zip.b64 > prison-source-v105.zip
+          echo "558e40b0efef989b3b493fa58b6551880393bfc7f83fc397e23b9d1c8abf71dc  prison-source-v105.zip" | sha256sum --check -
+          unzip -q -o prison-source-v105.zip
+          test -f build.gradle.kts
+          test -f src/main/resources/plugin.yml
+          grep -Fx "version: 1.0.5" src/main/resources/plugin.yml
+      - name: Compile actual Paper 26.3 JAR with Java 25
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Validate compiled plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.0.5-Paper26.3.jar
+          test -s "$JAR"
+          jar tf "$JAR" | grep -Fx "world/arvee/prison/ArveePrison.class"
+          jar tf "$JAR" | grep -Fx "plugin.yml"
+          unzip -p "$JAR" plugin.yml | grep -Fx "version: 1.0.5"
+          unzip -t "$JAR" | tail -1
+      - name: Upload ARVEEPrison v1.0.5 JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArveePrison-1.0.5-Paper26.3
+          path: build/libs/ArveePrison-1.0.5-Paper26.3.jar
+          retention-days: 30
+          if-no-files-found: error
