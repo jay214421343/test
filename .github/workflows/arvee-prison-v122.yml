@@ -1,0 +1,83 @@
+name: ARVEEPrison v1.2.2 - Mine Explosives hotfix
+on:
+  push:
+    branches: [arvee-prison-v122-20261026]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Restore verified v1.2.0 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v120-full-source.tar.xz.b64 > source.tar.xz
+          echo 'c6cf0a3cc1a901fa09bb61f4f09ebf35e87a6df26d71f27e7cc4dbbe730ad22f  source.tar.xz' | sha256sum -c -
+          tar -xJf source.tar.xz --overwrite
+      - name: Reconstruct v1.2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-v121.patch.xz.b64 > v121.patch.xz
+          echo '26e36a3cce4909c85f14032d04d36120705af4d4e325f3e539f3ed89e02da493  v121.patch.xz' | sha256sum -c -
+          tar -xJf v121.patch.xz --overwrite
+          grep -Fx 'version: 1.2.1' src/main/resources/plugin.yml
+      - name: Patch mine bombs and nukes to v1.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 patch-v122.py
+          grep -Fx 'version: 1.2.2' src/main/resources/plugin.yml
+          grep -F 'version = "1.2.2"' build.gradle.kts
+      - name: Regression source tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('src/main/java/world/arvee/prison')
+          s=(root/'PrisonMineExplosives.java').read_text()
+          assert 'getTargetBlockExact(8)' in s
+          assert 'mineOne(p,candidates.get(0),prestige,rank,directSell)' in s
+          assert s.index('mineOne(p,candidates.get(0),prestige,rank,directSell)') < s.index('held.setAmount(held.getAmount()-1)')
+          assert 'if(candidates.isEmpty())' in s
+          assert 'if(directSell||plugin.backpackHasRoom' in s
+          assert 'isChunkLoaded(b.getX()>>4,b.getZ()>>4)' in s
+          assert 'public void run()' in s and 'runTaskTimer(plugin,1L,1L)' in s
+          assert 'bonusBreak(p,b,directSell)' in s
+          assert 'bonusBreak(Player p,Block block,boolean directSale)' in (root/'PrisonPrestigeMines.java').read_text()
+          assert 'boolean selling = forceSell' in (root/'ArveePrison.java').read_text()
+          assert 'private static final int RESET_MINUTES=20' in (root/'PrisonPrestigeMines.java').read_text()
+          assert 'instant-sell: true' in Path('src/main/resources/config.yml').read_text()
+          print('Safe activation, boundaries, data and prestige reset invariants OK')
+          PY
+      - name: Compile real Java 25 / Paper 26.3 JAR
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Validate compiled JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.2.2-Paper26.3.jar
+          test -s "$JAR"
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.2.2'
+          for cls in ArveePrison PrisonMineExplosives PrisonPrestigeMines PrisonEnchantEngine PrisonExpeditions PrisonTutorial; do
+            jar tf "$JAR" | grep -Fx "world/arvee/prison/$cls.class"
+          done
+          unzip -t "$JAR" | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ARVEEPrison-1.2.2-Paper26.3
+          path: build/libs/ArveePrison-1.2.2-Paper26.3.jar
+          retention-days: 30
+          if-no-files-found: error
