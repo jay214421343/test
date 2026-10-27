@@ -1,0 +1,74 @@
+name: ARVEEPrison v1.3.0 - Prestige and Ascension Realms
+on:
+  push:
+    branches: [arvee-prison-v130-20261027]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Restore v1.2.5 base source without mutating older releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v120-full-source.tar.xz.b64 > source.tar.xz
+          echo 'c6cf0a3cc1a901fa09bb61f4f09ebf35e87a6df26d71f27e7cc4dbbe730ad22f  source.tar.xz' | sha256sum -c -
+          tar -xJf source.tar.xz --overwrite
+          base64 -d arvee-v121.patch.xz.b64 > v121.patch.xz
+          echo '26e36a3cce4909c85f14032d04d36120705af4d4e325f3e539f3ed89e02da493  v121.patch.xz' | sha256sum -c -
+          tar -xJf v121.patch.xz --overwrite
+          python3 patch-v122.py
+          base64 -d arvee-v123-prestige-ascension.patch.xz.b64 > v123.patch.xz
+          echo '1729ca55d286c1cdba052fd97ad85258998bcf21809174aade3b5e8e7d8bf5f1  v123.patch.xz' | sha256sum -c -
+          xz -dc v123.patch.xz | patch --batch --fuzz=0 -p1
+          python3 patch-v124.py
+          python3 patch-v125.py
+          grep -Fx 'version: 1.2.5' src/main/resources/plugin.yml
+      - name: Apply v1.3.0 Prestige and Ascension Realms
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-prison-v130-overlay.tar.xz.b64 > v130.tar.xz
+          echo 'e15863b27a3adc18c5f9c24e978599c9bb2476b1b4d506439600a76189b49a45  v130.tar.xz' | sha256sum -c -
+          tar -xJf v130.tar.xz --overwrite
+          grep -Fx 'version: 1.3.0' src/main/resources/plugin.yml
+          grep -F 'version = "1.3.0"' build.gradle.kts
+          test -s src/main/java/world/arvee/prison/PrisonRealmMastery.java
+      - name: Migration and feature regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/v130_regression.py
+          python3 tests/prestige_ascension_regression.py
+          python3 tests/v124_regression.py
+          python3 tests/booster_withdrawal_regression.py
+      - name: Compile with real Paper 26.3 API and Java 25
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Verify JAR classes metadata and integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveePrison-1.3.0-Paper26.3.jar
+          test -s "$JAR"
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.3.0'
+          for cls in ArveePrison PrisonPrestigeAscension PrisonPrestigeMines PrisonRealmMastery PrisonMineExplosives ArveePlaceholders PrisonBoostItems; do
+            jar tf "$JAR" | grep -Fx "world/arvee/prison/$cls.class"
+          done
+          unzip -t "$JAR" | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ARVEEPrison-v1.3.0-Paper26.3
+          path: build/libs/ArveePrison-1.3.0-Paper26.3.jar
+          retention-days: 30
+          if-no-files-found: error
