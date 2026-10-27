@@ -1,0 +1,61 @@
+name: Build ArveeProfiles v1.2.7 - Locked Profile Head
+on:
+  push:
+    branches: [arvee-profiles-v127-20261027]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Restore complete source and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d arvee-profiles-v127-source.zip.b64 > arvee-profiles-v127-source.zip
+          echo '957d9638a039fd4fbf17c7815355d8e39ff7c86a3390468c9c4d7facf8ae17a6  arvee-profiles-v127-source.zip' | sha256sum -c -
+          unzip -q -o arvee-profiles-v127-source.zip
+          grep -F 'version: 1.2.7' src/main/resources/plugin.yml
+          grep -F 'version = "1.2.7"' build.gradle.kts
+      - name: Static regression checks
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/main/java/world/arvee/profiles/NetworkProgression.java').read_text()
+          q=Path('src/main/java/world/arvee/profiles/ArveeProfiles.java').read_text()
+          assert all(t in p for t in ('onShortcutClick(', 'onShortcutDrag(', 'onSwapHands(', 'onDrop(', 'onRespawn(', 'getHotbarButton()', 'getOldCursor()', 'isShortcut(e.getCurrentItem())'))
+          menu=q[q.index('private void openProfile('):q.index('private String group(')]
+          assert 'Daily Rewards' not in menu and 'Cosmetics' not in menu
+          assert 'progression.levelItem(id)' in menu and 'progression.colorsItem(id)' in menu
+          assert 'player.performCommand(slot == 12' not in q
+          print('ArveeProfiles v1.2.7 regression checks passed')
+          PY
+      - name: Compile Java 25 using Paper API
+        run: gradle clean jar --no-daemon --stacktrace
+      - name: Validate JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=build/libs/ArveeProfiles-1.2.7.jar
+          test -s "$JAR"
+          unzip -p "$JAR" plugin.yml | grep -Fx 'version: 1.2.7'
+          jar tf "$JAR" | grep -Fx 'world/arvee/profiles/NetworkProgression.class'
+          jar tf "$JAR" | grep -Fx 'world/arvee/profiles/ArveeProfiles.class'
+          unzip -t "$JAR" | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArveeProfiles-1.2.7-Paper26.3
+          path: build/libs/ArveeProfiles-1.2.7.jar
+          if-no-files-found: error
+          retention-days: 30
