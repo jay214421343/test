@@ -24,6 +24,7 @@ jobs:
           base64 -d arvee-lobby-offhand-source.zip.b64 > source.zip
           echo '02d43cd6b25d748c3838ef9ea3a5ba864ebafa89a2e53fd85f22c6a46ae4952f  source.zip' | sha256sum -c -
           unzip -q source.zip -d src
+          sed -i '/import org.bukkit.event.player.PlayerJoinEvent;/a import org.bukkit.event.player.PlayerSwapHandItemsEvent;' src/rewards/src/main/java/world/arvee/rewards/ArveeRewards.java
           grep -q 'PlayerSwapHandItemsEvent' src/cosmetics/src/main/java/world/arvee/cosmetics/ArveeCosmetics.java
           grep -q 'PlayerSwapHandItemsEvent' src/rewards/src/main/java/world/arvee/rewards/ArveeRewards.java
           grep -q 'PlayerSwapHandItemsEvent' src/settings/src/main/java/world/arvee/settings/ArveeSettings.java
